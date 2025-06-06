@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Real Time Chat Demo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+
+    .message-container {
+      height: calc(100vh - 180px);
+    }
+
+    .message {
+      animation: fadeIn 0.3s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .typing-indicator span {
+      animation: blink 1.4s infinite both;
+    }
+
+    .typing-indicator span:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    .typing-indicator span:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+
+    @keyframes blink {
+      0%, 20%, 100% {
+        opacity: 0.2;
+      }
+      20% {
+        opacity: 1;
+      }
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-indigo-100 to-purple-100 min-h-screen">
+  <div class="container mx-auto px-4 py-8 max-w-3xl">
+    <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+      <!-- Header -->
+      <div class="bg-indigo-600 text-white px-6 py-4 flex justify-between items-center">
+        <div class="flex items-center">
+          <h1 class="text-xl font-bold">Chat Room</h1>
+          <div class="ml-3 bg-green-400 rounded-full h-2.5 w-2.5"></div>
+          <span class="ml-2 text-xs text-indigo-200">
+            <span id="online-count">24</span> online
+          </span>
+        </div>
+        <div class="flex items-center">
+          <div class="relative">
+            <select id="username-select" class="bg-indigo-700 text-white text-sm rounded-lg px-3 py-1.5 appearance-none">
+              <option value="You">You</option>
+              <option value="Guest">Switch to Guest</option>
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-white">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Messages Area -->
+      <div id="messages" class="message-container px-6 py-4 overflow-y-auto bg-gray-50">
+        <div class="flex flex-col space-y-3">
+          <!-- Messages will be inserted here -->
+        </div>
+      </div>
+
+      <!-- Typing Indicator -->
+      <div id="typing_indicator" class="px-6 py-2 bg-gray-50 text-gray-500 text-sm hidden">
+        <div class="typing-indicator">
+          <span class="font-medium" id="typing-username">Sarah</span> is typing
+          <span>.</span><span>.</span><span>.</span>
+        </div>
+      </div>
+
+      <!-- Input Area -->
+      <div class="px-6 py-4 bg-white border-t border-gray-200">
+        <form id="message-form" class="flex items-center">
+          <input
+            type="text"
+            id="message-input"
+            class="flex-1 border border-gray-300 rounded-l-lg py-2 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="Type a message..."
+            autocomplete="off"
+          />
+          <button
+            type="submit"
+            class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-6 rounded-r-lg transition"
+          >
+            Send
+          </button>
+        </form>
+      </div>
+
+      <!-- Connection Status -->
+      <div id="connection-status" class="mt-4 text-center">
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+          <span class="h-2 w-2 rounded-full bg-green-500 mr-2"></span>
+          Connected
+        </span>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // Simulated chat data
+    const users = [
+      { id: 1, name: 'Sarah', avatar: '👩‍🦰', color: 'bg-pink-100 text-pink-800' },
+      { id: 2, name: 'Mike', avatar: '👨‍🦱', color: 'bg-blue-100 text-blue-800' },
+      { id: 3, name: 'Alex', avatar: '🧑', color: 'bg-purple-100 text-purple-800' },
+    ];
+
+    // DOM elements
+    const messagesContainer = document.getElementById('messages');
+    const messageForm = document.getElementById('message-form');
+    const messageInput = document.getElementById('message-input');
+    const typingIndicator = document.getElementById('typing-indicator');
+    const typingUsername = document.getElementById('typing-username');
+    const connectionStatus = document.getElementById('connection-status');
+    const usernameSelect = document.getElementById('username-select');
+    const onlineCount = document.getElementById('online-count');
+
+// Current user
+let currentUser = { id: 0, name: 'You', avatar: '⚫', color: 'bg-indigo-100 text-indigo-800' };
+
+// Initial messages
+const initialMessages = [
+  { userId: 1, text: 'Hey everyone! How are you doing today?', timestamp: new Date(Date.now() - 1000 * 60 * 15) },
+  { userId: 2, text: "I'm good! Just working on a new project.", timestamp: new Date(Date.now() - 1000 * 60 * 10) },
+  { userId: 3, text: "Hello! I just joined this chat.", timestamp: new Date(Date.now() - 1000 * 60 * 5) },
+  { userId: 1, text: "Welcome Alex! We're discussing the new design system.", timestamp: new Date(Date.now()) }
+];
+
+// Add initial messages
+window.addEventListener('DOMContentLoaded', () => {
+  initialMessages.forEach(msg => {
+    const user = users.find(u => u.id === msg.userId);
+    addMessageToDOM(user, msg.text, msg.timestamp);
+  });
+});
+
+// Simulate connection issues occasionally
+setTimeout(() => {
+  simulateConnectionIssue();
+}, 15000);
+
+// Handle form submission
+messageForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const message = messageInput.value.trim();
+  if (message) {
+           // Add user message
+    addMessageToDOM(currentUser, message, new Date());
+    messageInput.value = '';
+
+    // Simulate response after a delay
+    simulateTyping();
+
+    // Update online count randomly
+    if (Math.random() > 0.7) {
+        const newCount = Math.floor(Math.random() * 3) + 2;
+        onlineCount.textContent = newCount;
+    }
+});
+
+// Handle typing simulation
+messageInput.addEventListener('input', () => {
+    if (messageInput.value.trim() !== '' && Math.random() > 0.7) {
+        simulateTyping();
+    }
+});
+
+// Handle username change
+usernameSelect.addEventListener('change', () => {
+    currentUser.name = usernameSelect.value;
+});
+
+// Function to add message to DOM
+function addMessageToDOM(user, text, timestamp) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message flex items-start mb-4';
+
+    const isCurrentUser = user.id === 0;
+
+    if (isCurrentUser) {
+        messageDiv.classList.add('justify-end');
+        messageDiv.innerHTML = `
+            <div class="flex flex-col items-end">
+                <div class="flex items-center mb-1">
+                    <span class="text-xs text-gray-500">${formatTime(timestamp)}</span>
+                    <span class="ml-2 font-medium text-sm">${user.name}</span>
+                    <span class="ml-2">${user.avatar}</span>
+                </div>
+                <div class="bg-indigo-500 text-white px-4 py-2 rounded-2xl rounded-tr-none max-w-xs break-words">
+                    ${text}
+                </div>
+            </div>
+        `;
+    } else {
+        messageDiv.innerHTML = `
+            <div class="flex flex-col">
+                <div class="flex items-center mb-1">
+                    <span class="mr-2">${user.avatar}</span>
+                    <span class="font-medium text-sm">${user.name}</span>
+                    <span class="ml-2 text-xs text-gray-500">${formatTime(timestamp)}</span>
+                </div>
+                <div class="${user.color} px-4 py-2 rounded-2xl rounded-tl-none max-w-xs break-words">
+                    ${text}
+                </div>
+            </div>
+        `;
+    }
+
+    messagesContainer.querySelector('.flex').appendChild(messageDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+// Format timestamp
+function formatTime(date) {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+// Simulate typing indicator
+function simulateTyping() {
+    const randomUser = users[Math.floor(Math.random() * users.length)];
+    typingUsername.textContent = randomUser.name;
+    typingIndicator.classList.remove('hidden');
+
+    setTimeout(() => {
+        typingIndicator.classList.add('hidden');
+        setTimeout(() => {
+            typingIndicator.classList.add('hidden');
+
+            // 70% chance to get a response
+            if (Math.random() > 0.3) {
+                const responses = [
+                    "That's interesting! Tell me more.",
+                    "I agree with your point.",
+                    "I'm not sure I follow. Could you explain?",
+                    "Great idea! I was thinking the same thing.",
+                    "Let's discuss this further in the meeting tomorrow.",
+                    "Have you considered an alternative approach?",
+                    "Thanks for sharing that information!"
+                ];
+
+                const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+                addMessageToDOM(randomUser, randomResponse, new Date());
+            }
+        }, Math.random() * 2000 + 1000);
+    }
+
+    // Simulate connection issues
+    function simulateConnectionIssue() {
+        if (Math.random() > 0.7) {
+            connectionStatus.innerHTML = `
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
+                    <span class="h-2 w-2 rounded-full bg-yellow-500 mr-2"></span>
+                    Reconnecting...
+                </span>
+            `;
+            setTimeout(() => {
+                connectionStatus.innerHTML = `
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                        <span class="h-2 w-2 rounded-full bg-green-500 mr-2"></span>
+                        Connected
+                    </span>
+                `;
+            }, 3000);
+        }
+
+        // Schedule next connection issue
+        setTimeout(() => {
+            simulateConnectionIssue();
+        }, Math.random() * 30000 + 20000);
+    }
+</script>
+</body>
+</html>
