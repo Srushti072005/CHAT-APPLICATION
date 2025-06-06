@@ -35,3 +35,8 @@ The application uses animations for a more dynamic feel, including message fade-
 The design follows modern UI principles with rounded corners, subtle shadows, and a color scheme based around indigo and purple tones. The code is written in HTML, CSS (using Tailwind), and JavaScript, making it completely self-contained and ready to use in any modern browser.
 
 
+#OUTPUT
+
+![Image](https://github.com/user-attachments/assets/87274ff0-f6c5-45fd-92cf-785ee842d340)
+
+
